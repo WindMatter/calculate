@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta name="description" content="" />
+	<meta name="author" content="" />
+	<meta content="대나무숲 정산" property="og:title">
+	<!--<meta th:content="@{assets/img/bamboo.png}" property="og:image"> -->
+	<title>대나무숲 정산</title>
+	
+	<link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
+	<link href="styles.css" rel="stylesheet" />
+	<link href="buttons.css" rel="stylesheet" />
+	<link href="tables.css" rel="stylesheet" />
+	
+	<script src="jquery-3.7.1.min.js"></script>
+	<script src="common.js"></script>
+</head>
+<!--<body class="sb-nav-fixed">-->
+<body class="wrapper flow">
+<script type="text/javascript">
+    let grid;
+
+    $(document).ready(function(){
+		var today = new Date();
+		today = `${today.getFullYear()}-${today.getMonth() < 10 ? "0"+(today.getMonth()+1) : today.getMonth()+1}-${today.getDay() < 10 ? "0"+(today.getDate()) : today.getDate()}`;
+		$('#dateInput').val(today);
+		
+		grid = new gridjs.Grid({
+			columns: [
+				{name:"선택", width: "100px", formatter: (_, row) => gridjs.html(`<input type="checkbox" class="select-row" data-nick="${row.cells[1].data}"/>`)},
+				{name:"닉넴", width: "100px"},
+			],
+			data: [],
+			pagination: false,
+			search: true,
+			sort: true,
+			language: {
+				'search': {
+					'placeholder': '검색'
+				}
+			},
+		}).render(document.getElementById("grid"));
+			
+        $('#search').click(function(){
+            getNicks();
+        });
+
+        $('#allCheck').click(function(){
+            $('.select-row').each(function() {
+                $(this).attr('checked', true);
+                $('#addBtn1').click();
+            });
+        });
+
+        $('#addBtn1').click(function(){
+            let head = '<tr><td>장소</td><td>결제금액</td>';
+            let body = '<tr><td><input type="text" value="1차"></td><td><input type="number"></td>';
+
+            $('.select-row:checked').each(function() {
+                head += `<td>${$(this).data('nick')}</td>`;
+                body += '<td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>';
+            });
+
+            body += '</tr>';
+            head += '</tr>';
+
+            $('#calHead').html(head);
+            $('#calBody').html(body);
+
+            $('#modal').hide();
+        });
+
+        $('#addBtn2').click(function(){
+            if($('#calBody').children().eq($('#calBody').children().length-1).children().eq(0).text() === '합계'){
+                delRow();
+            }
+
+            let head = `<td>${$('#nickName').val()}</td>`;
+            let body = '<td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>';
+
+            $('#calHead').children().append(head);
+            $('#calBody').children().append(body);
+
+            $('#modalMember').hide();
+        });
+
+        $('.close_btn').click(function(){
+           $('.modal').hide();
+        });
+    });
+
+    function getNicks(){
+		var url = "https://script.google.com/macros/s/AKfycbw6Ws65GhDjuL-EysnX5iqB5s0vyKUVYmnz-q7DxP_EMsWUPaK4u6Oj6xCRDVwRlBLp/exec?action=getMembers&date="+$('#dateInput').val();
+		
+		$.ajax({
+            type: 'get',
+            url: url,
+            dataType: 'json',
+            success: function(data){
+                const gridData = [];
+
+                data = sortJsonData(data, 'nick_name', 'asc');
+
+                if(data != null){
+                    for (let i = 0; i < data.length; i++) {
+                        gridData.push(['', data[i].nick_name]);
+                    }
+                }
+
+                grid.updateConfig({
+                    data: gridData
+                }).forceRender();
+
+                $('#modal').show();
+            }
+        });
+		
+		/*
+        $.ajax({
+            type: 'get',
+            url: url,
+            dataType: 'text',
+            success: function(data){
+                const gridData = [];
+
+                data = sortJsonData(JSON.parse(data).data, 'nick_name', 'asc');
+
+                if(data != null){
+                    for (let i = 0; i < data.length; i++) {
+                        gridData.push(['', data[i].nick_name]);
+                    }
+                }
+
+                grid.updateConfig({
+                    data: gridData
+                }).forceRender();
+
+                $('#modal').show();
+            }
+        });*/
+    }
+
+    function soloCal(e){
+        let html = '<input type="number"><img src="assets/img/rollback.png" style="width: 20px" onclick="sumCal(this)">';
+        $(e).parent().html(html);
+    }
+
+    function sumCal(e){
+        let html = '<button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button>';
+        $(e).parent().html(html);
+    }
+
+    function imgSave(){
+        if($('#calBody').children().eq($('#calBody').children().length-1).children().eq(0).text() != '합계'){
+            alert('정산 후 눌러주세요.');
+            return false;
+        }
+
+        const tableContainer = document.getElementById("hdTable");
+        $('#calTable').hide();
+        $('#hdTable').show();
+
+        // Use html2canvas to capture the table as an image
+        html2canvas(tableContainer).then(canvas => {
+            // Convert the canvas to a data URL
+            const imgData = canvas.toDataURL("image/png");
+
+            // Create a link element for downloading the image
+            const link = document.createElement("a");
+            link.href = imgData;
+            link.download = $('#dateInput').val() + ".png";
+
+            // Trigger the download
+            // link.click();
+
+            //new window
+            // window.open(link.href, "_blank");
+            const newTab = window.open();
+            if (newTab) {
+                newTab.document.body.innerHTML = `<img src="${imgData}" style="width:100%; height:auto;">`;
+            } else {
+                alert("팝업 차단이 설정되어 있습니다. 브라우저 설정에서 팝업을 허용해 주세요.");
+            }
+        });
+
+        $('#calTable').show();
+        $('#hdTable').hide();
+    }
+
+    function calculate(){
+        if($('#calBody').children().eq($('#calBody').children().length-1).children().eq(0).text() === '합계'){
+            delRow();
+        }
+
+        $('#hdHead').html($('#calHead').html());
+        $('#hdBody').html($('#calBody').html());
+        hdWrite();
+
+        let colCnt = $('#calHead').children().children().length;
+        let rowCnt = $('#calBody').children().length;
+        let html = '<tr><td>합계</td>';
+        let sumTotal = 0;
+        let arrSum = [];
+
+        for(let i = 0; i < rowCnt; i++){
+            sumTotal += Number($('#calBody').children().eq(i).children().eq(1).children().val());
+            arrSum.push($('#calBody').children().eq(i).children().eq(1).children().val());
+        }
+        html += `<td><input type="text" class="text-span" readonly value="${formatNumber(sumTotal)}"></td>`;
+
+        for(let i = 2; i < colCnt; i++){
+            let total = 0;
+
+            for(let j = 0; j < rowCnt; j++){
+                if($('#calBody').children().eq(j).children().eq(i).children().attr('type') === undefined){
+                    let rowSum = arrSum[j];
+                    let solCnt = 0;
+                    for(let k = 2; k < colCnt; k++){
+                        if($('#calBody').children().eq(j).children().eq(k).children().attr('type') === 'number'){
+                            rowSum -= $('#calBody').children().eq(j).children().eq(k).children().val();
+                            solCnt++;
+                        }
+                    }
+                    let val = Math.round(rowSum / ((colCnt - 2) - solCnt))
+                    total += val;
+                    $('#hdBody').children().eq(j).children().eq(i).children().val(formatNumber(val));
+
+                    // let h = $('#calHead').children().eq(0).children().eq(i).text();
+                    // let c = $('#calBody').children().eq(j).children().eq(0).val();
+                    // console.log(h + '-' + c + ' : ' + val);
+                } else {
+                    if($('#calBody').children().eq(j).children().eq(i).children().val() === ''){
+                        $('#calBody').children().eq(j).children().eq(i).children().val('0');
+                    }
+                    let val = Number($('#calBody').children().eq(j).children().eq(i).children().val())
+                    total += val;
+                    $('#hdBody').children().eq(j).children().eq(i).children().val(formatNumber(val));
+
+                    // let h = $('#calHead').children().eq(0).children().eq(i).text();
+                    // let c = $('#calBody').children().eq(j).children().eq(0).text();
+                    // console.log(h + '-' + c + ' : ' + val);
+                }
+            }
+
+            if($('#round').val() === '100'){
+                total = Math.floor(total/100)*100;
+            } else if ($('#round').val() === '1000'){
+                total = Math.floor(total/1000)*1000;
+            }
+            html += `<td><input type="text" class="text-span" readonly value="${formatNumber(total)}"></td>`;
+            // console.log('total : ' + total);
+        }
+
+        $('#calBody').append(html);
+        $('#hdBody').append(html);
+    }
+	
+    function addRow(){
+        if($('#calBody').children().eq($('#calBody').children().length-1).children().eq(0).text() === '합계'){
+            delRow();
+            return false;
+        }
+
+        let colCnt = $('#calHead').children().children().length-2;
+        let body = '<tr><td><input type="text"></td><td><input type="number"></td>';
+
+        for(let i = 0; i < colCnt; i++){
+            body += '<td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>';
+        }
+
+        body += '</tr>';
+        $('#calBody').append(body);
+    }
+
+    function delRow(){
+        let idx = $('#calBody').children().length-1;
+        if(idx > 0){
+            $('#calBody').children().eq(idx).remove();
+        } else {
+            alert('마지막 줄입니다.');
+        }
+    }
+
+    function addMember(){
+        $('#nickName').val('');
+        $('#modalMember').show();
+    }
+
+    function closeModal(event){
+        const modal1 = document.getElementById('modal');
+        const modal2 = document.getElementById('modalMember');
+        if (event.target === modal1 || event.target === modal1) {  // modal이 클릭된 경우
+            $('.modal').hide();
+        }
+    }
+
+    function hdWrite(){
+        let colCnt = $('#hdHead').children().children().length;
+        let rowCnt = $('#hdBody').children().length;
+
+        for(let i = 0; i < rowCnt; i++){
+            let val = $('#calBody').children().eq(i).children().eq(0).children().val();
+            $('#hdBody').children().eq(i).children().eq(0).html(`<input type="text" class="text-span" value="${val}">`);
+        }
+
+        for(let i = 1; i < colCnt; i++){
+            for(let j = 0; j < rowCnt; j++){
+                $('#hdBody').children().eq(j).children().eq(i).html('<input type="text" class="text-span">');
+                if(i === 1){
+                    let val = formatNumber($('#calBody').children().eq(j).children().eq(i).children().val());
+                    $('#hdBody').children().eq(j).children().eq(i).children().val(val);
+                }
+            }
+        }
+    }
+
+    function formatNumber(val) {
+        // 기존 값에서 숫자만 추출
+        let value = String(val).replace(/[^0-9]/g, '');
+
+        // 1000단위 콤마 추가
+        return val = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+</script>
+
+<div id="layoutSidenav">
+    <div id="layoutSidenav_nav">
+		<nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+			<div class="sb-sidenav-menu">
+				<div class="nav">
+				</div>
+			</div>
+			<div class="sb-sidenav-footer">
+			</div>
+		</nav>
+	</div>
+    <div id="layoutSidenav_content">
+        <main>
+            <div class="container-fluid px-4">
+                <h1 class="mt-4">정산</h1>
+                <div class="card mb-4">
+                    <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+                        <label for="dateInput"></label><input type="date" class="date-input" id="dateInput" style="width: 130px">
+                    </div>
+					<div class="container" style="display: flex; justify-content: flex-end; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+                        <a href="#" class="btn-gradient blue mini right-btn" id="search">멤버 목록</a>
+                        <div class="right-group">
+                            <a href="javascript:addMember()" class="btn-gradient blue mini right-btn">멤버추가</a>
+                        </div>
+                    </div>
+                    <div class="card-body calculate-container">
+                        <table class="calculate-table" id="calTable">
+                            <thead id="calHead"></thead>
+                            <tbody id="calBody"></tbody>
+<!--                            <thead id="calHead">-->
+<!--                                <tr>-->
+<!--                                    <th>차수</th>-->
+<!--                                    <th>합계</th>-->
+<!--                                    <th>사람1</th>-->
+<!--                                    <th>사람2</th>-->
+<!--                                    <th>사람3</th>-->
+<!--                                    <th>사람4</th>-->
+<!--                                    <th>사람5</th>-->
+<!--                                </tr>-->
+<!--                            </thead>-->
+<!--                            <tbody id="calBody">-->
+<!--                                <tr>-->
+<!--                                    <td>1차</td>-->
+<!--                                    <td><input type="number" value="20000"></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                    <td><input type="number" value="1000"><img src="assets/img/rollback.png" style="width: 20px" onclick="sumCal(this)"></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                    <td><input type="number" value="3000"><img src="assets/img/rollback.png" style="width: 20px"></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                </tr>-->
+<!--                                <tr>-->
+<!--                                    <td>2차</td>-->
+<!--                                    <td><input type="number" value="50000"></td>-->
+<!--                                    <td><input type="number" value="5000"><img src="assets/img/rollback.png" style="width: 20px"></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                    <td><input type="number" value="3000"><img src="assets/img/rollback.png" style="width: 20px"></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                    <td><button class="btn-gradient green mini" onclick="soloCal(this)">따로정산</button></td>-->
+<!--                                </tr>-->
+<!--                            </tbody>-->
+                        </table>
+                        <table class="calculate-table" id="hdTable" style="display: none">
+                            <thead id="hdHead"></thead>
+                            <tbody id="hdBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+                        <a href="javascript:delRow()" class="btn-gradient blue mini right-btn">막줄제거</a>
+                        <div class="right-group">
+                            <a href="javascript:addRow()" class="btn-gradient blue mini right-btn">막줄추가</a>
+                        </div>
+                    </div>
+                    <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 20px 0 0 0;">
+                        <span></span>
+                        <div class="right-group">
+                            <label for="round">절삭</label>
+                            <select id="round">
+                                <option value="">안함</option>
+                                <option value="100">100원 단위</option>
+                                <option value="1000">1,000원 단위</option>
+                            </select>
+                            <a href="javascript:calculate()" class="btn-gradient blue mini right-btn">정산</a>
+                        </div>
+                    </div>
+                    <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 20px 0 0 0;">
+                        <span></span>
+                        <div class="right-group">
+                            <a href="javascript:imgSave()" class="btn-gradient red mini left-btn">저장용 이미지</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal" id="modal" onclick="closeModal(event)">
+    <div class="modal_popup" onclick="event.stopPropagation()">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+            <div class="right-group">
+                <a href="#" class="btn-gradient blue mini right-btn" id="allCheck">전체선택</a>
+            </div>
+        </div>
+        <div id="grid"></div>
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+            <button type="button" class="add_btn" id="addBtn1">추가</button>
+            <button type="button" class="close_btn">닫기</button>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal" id="modalMember" onclick="closeModal(event)">
+    <div class="modal_popup" onclick="event.stopPropagation()">
+        <div class="form-floating mb-3 mb-md-0">
+            <input class="form-control" id="nickName" type="text" placeholder="닉네임"/>
+            <label for="nickName">닉네임</label>
+        </div>
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ccc;
+                        width: 100%; margin: 0 auto;">
+            <button type="button" class="add_btn" id="addBtn2">추가</button>
+            <button type="button" class="close_btn">닫기</button>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+</body>
+</html>
