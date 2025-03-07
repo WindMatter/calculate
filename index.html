@@ -22,6 +22,7 @@
 <body class="wrapper flow">
 <script type="text/javascript">
     let grid;
+	let clicks = false;
 
     $(document).ready(function(){
 		var today = new Date();
@@ -93,54 +94,37 @@
     });
 
     function getNicks(){
-		var url = "https://script.google.com/macros/s/AKfycbw6Ws65GhDjuL-EysnX5iqB5s0vyKUVYmnz-q7DxP_EMsWUPaK4u6Oj6xCRDVwRlBLp/exec?action=getMembers&date="+$('#dateInput').val();
+		if(!clicks){
+			clicks = true;
+			
+			var url = "https://script.google.com/macros/s/AKfycbw6Ws65GhDjuL-EysnX5iqB5s0vyKUVYmnz-q7DxP_EMsWUPaK4u6Oj6xCRDVwRlBLp/exec?action=getMembers&date="+$('#dateInput').val();
 		
-		$.ajax({
-            type: 'get',
-            url: url,
-            dataType: 'json',
-            success: function(data){
-                const gridData = [];
+			$.ajax({
+				type: 'get',
+				url: url,
+				dataType: 'json',
+				success: function(data){
+					clicks = false;
+					const gridData = [];
 
-                data = sortJsonData(data, 'nick_name', 'asc');
+					data = sortJsonData(data, 'nick_name', 'asc');
 
-                if(data != null){
-                    for (let i = 0; i < data.length; i++) {
-                        gridData.push(['', data[i].nick_name]);
-                    }
-                }
+					if(data != null){
+						for (let i = 0; i < data.length; i++) {
+							gridData.push(['', data[i].nick_name]);
+						}
+					}
 
-                grid.updateConfig({
-                    data: gridData
-                }).forceRender();
+					grid.updateConfig({
+						data: gridData
+					}).forceRender();
 
-                $('#modal').show();
-            }
-        });
-		
-		/*
-        $.ajax({
-            type: 'get',
-            url: url,
-            dataType: 'text',
-            success: function(data){
-                const gridData = [];
-
-                data = sortJsonData(JSON.parse(data).data, 'nick_name', 'asc');
-
-                if(data != null){
-                    for (let i = 0; i < data.length; i++) {
-                        gridData.push(['', data[i].nick_name]);
-                    }
-                }
-
-                grid.updateConfig({
-                    data: gridData
-                }).forceRender();
-
-                $('#modal').show();
-            }
-        });*/
+					$('#modal').show();
+				}
+			});
+		} else {
+			alert('불러오는중');
+		}
     }
 
     function soloCal(e){
